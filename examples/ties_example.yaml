@@ -1,0 +1,22 @@
+name: ties-mistral-multitask
+method: ties
+models:
+  - path: ./models/mistral-7b-v0.1
+    name: mistral_base
+    is_base: true
+  - path: ./models/mistral-7b-openorca
+    name: openorca_donor
+    weight: 1.0
+  - path: ./models/mistral-7b-code
+    name: code_donor
+    weight: 0.8
+base_model: mistral_base
+ties_config:
+  density: 0.25
+  majority_sign_method: total
+  weight: 1.0
+  normalize_signs: true
+streaming_config:
+  output_dtype: float16
+  shard_size_gb: 4.9
+output_dir: ./output/ties_merged_model

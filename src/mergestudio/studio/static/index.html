@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MergeStudio: Visual Model Merging & Layer Surgery</title>
+  <style>
+    :root {
+      --bg-primary: #0a0d14;
+      --bg-secondary: #101622;
+      --bg-card: #151d2d;
+      --bg-input: #0d121c;
+      --border-color: #212c42;
+      --border-focus: #3b82f6;
+      --text-main: #f1f5f9;
+      --text-muted: #8b9bb4;
+      --accent-cyan: #06b6d4;
+      --accent-blue: #3b82f6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --danger: #ef4444;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: #fff;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-pill {
+      font-size: 0.75rem;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-emerald);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-emerald);
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    label {
+      font-size: 0.825rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .label-val {
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    input[type="text"], select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+      color: var(--text-main);
+      font-size: 0.875rem;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus, select:focus {
+      border-color: var(--border-focus);
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+    }
+
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+
+    .method-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem 0.5rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      transition: all 0.15s;
+    }
+
+    .method-btn.active {
+      background: rgba(6, 182, 212, 0.1);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .method-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .method-sub {
+      font-size: 0.7rem;
+      opacity: 0.7;
+    }
+
+    .btn {
+      background: var(--accent-blue);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.65rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-cyan {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border-color);
+    }
+
+    .curve-canvas-wrap {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    svg.curve-svg {
+      width: 100%;
+      height: 90px;
+    }
+
+    .console-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 100%;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .metric-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .metric-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-val {
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+    }
+
+    .progress-bar-container {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      height: 24px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+      transition: width 0.2s ease;
+    }
+
+    .progress-bar-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+
+    .terminal-box {
+      background: #06090e;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      height: 380px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    .log-info { color: var(--accent-cyan); }
+    .log-success { color: var(--accent-emerald); }
+    .log-warn { color: var(--accent-amber); }
+    .log-err { color: var(--danger); }
+
+    .slice-item {
+      display: grid;
+      grid-template-columns: 1fr 70px 70px auto;
+      gap: 0.5rem;
+      align-items: center;
+      background: var(--bg-input);
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .slice-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">M</div>
+      <div class="brand-title">MergeStudio</div>
+      <div class="brand-pill">Zero-RAM Streaming</div>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot"></div>
+      <span id="api-status">API Connected</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Configuration Column -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>Merge Configuration</span>
+      </div>
+
+      <!-- Algorithm Selector -->
+      <div class="control-group">
+        <label>Algorithm</label>
+        <div class="method-grid">
+          <button class="method-btn active" data-method="slerp">
+            <span class="method-name">SLERP</span>
+            <span class="method-sub">Spherical Linear</span>
+          </button>
+          <button class="method-btn" data-method="ties">
+            <span class="method-name">TIES</span>
+            <span class="method-sub">Trim & Elect Sign</span>
+          </button>
+          <button class="method-btn" data-method="dare_ties">
+            <span class="method-name">DARE</span>
+            <span class="method-sub">Drop & Rescale</span>
+          </button>
+          <button class="method-btn" data-method="frankenmerge">
+            <span class="method-name">Frankenmerge</span>
+            <span class="method-sub">Layer Surgery</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Models Input -->
+      <div class="control-group">
+        <label>Model A / Base Model Path</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="model-a-path" placeholder="./models/llama-3-8b-base" style="flex: 1;" value="./models/base_model">
+          <button class="btn btn-secondary" onclick="inspectModel('model-a')">Inspect</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="model-b-group">
+        <label>Model B / Donor Model Path</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="model-b-path" placeholder="./models/llama-3-8b-instruct" style="flex: 1;" value="./models/donor_model">
+          <button class="btn btn-secondary" onclick="inspectModel('model-b')">Inspect</button>
+        </div>
+      </div>
+
+      <!-- Output Directory -->
+      <div class="control-group">
+        <label>Output Directory</label>
+        <input type="text" id="output-path" value="./output/merged_model">
+      </div>
+
+      <!-- Algorithm Dynamic Parameters -->
+      <div id="params-slerp" class="control-group">
+        <label>SLERP Alpha (t) <span class="label-val" id="val-alpha">0.50</span></label>
+        <input type="range" id="param-alpha" min="0" max="1" step="0.01" value="0.5" oninput="updateAlpha(this.value)">
+      </div>
+
+      <div id="params-ties" class="control-group" style="display: none;">
+        <label>Density (Trim top k%) <span class="label-val" id="val-density">0.20</span></label>
+        <input type="range" id="param-density" min="0.05" max="1.0" step="0.05" value="0.2" oninput="updateDensity(this.value)">
+
+        <label style="margin-top: 0.5rem;">Weight Multiplier (&lambda;) <span class="label-val" id="val-ties-weight">1.0</span></label>
+        <input type="range" id="param-ties-weight" min="0.1" max="2.0" step="0.1" value="1.0" oninput="updateTiesWeight(this.value)">
+      </div>
+
+      <div id="params-dare" class="control-group" style="display: none;">
+        <label>Drop Rate (p) <span class="label-val" id="val-drop-rate">0.50</span></label>
+        <input type="range" id="param-drop-rate" min="0.0" max="0.95" step="0.05" value="0.5" oninput="updateDropRate(this.value)">
+      </div>
+
+      <!-- Frankenmerge Slices Panel -->
+      <div id="params-franken" class="control-group" style="display: none;">
+        <label>Layer Slices</label>
+        <div class="slice-list" id="slice-container">
+          <div class="slice-item">
+            <input type="text" value="model_a" style="padding: 0.3rem;" class="slice-model">
+            <input type="text" value="0" style="padding: 0.3rem;" class="slice-start" placeholder="start">
+            <input type="text" value="16" style="padding: 0.3rem;" class="slice-end" placeholder="end">
+            <button class="btn btn-secondary" style="padding: 0.3rem 0.5rem;" onclick="removeSlice(this)">&times;</button>
+          </div>
+          <div class="slice-item">
+            <input type="text" value="model_b" style="padding: 0.3rem;" class="slice-model">
+            <input type="text" value="8" style="padding: 0.3rem;" class="slice-start" placeholder="start">
+            <input type="text" value="24" style="padding: 0.3rem;" class="slice-end" placeholder="end">
+            <button class="btn btn-secondary" style="padding: 0.3rem 0.5rem;" onclick="removeSlice(this)">&times;</button>
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top: 0.5rem;" onclick="addSlice()">+ Add Layer Slice</button>
+      </div>
+
+      <!-- Weight Schedule & Curve Visualizer -->
+      <div class="control-group">
+        <label>Layer Weight Schedule Curve</label>
+        <select id="schedule-type" onchange="redrawCurve()">
+          <option value="constant">Constant</option>
+          <option value="linear">Linear Progression</option>
+          <option value="cosine" selected>Cosine Smooth</option>
+          <option value="sigmoid">Sigmoid S-Curve</option>
+        </select>
+        <div class="curve-canvas-wrap">
+          <svg class="curve-svg" id="curve-svg" viewBox="0 0 300 90"></svg>
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+            <span>Layer 0 (Start)</span>
+            <span>Layer 31 (Output)</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-cyan" style="width: 100%; margin-top: 0.5rem;" onclick="startMerge()">
+        Execute Streaming Merge
+      </button>
+    </div>
+
+    <!-- Right Console & Telemetry Column -->
+    <div class="panel console-panel">
+      <div class="panel-title">
+        <span>Execution Telemetry & Stream Log</span>
+      </div>
+
+      <!-- Realtime Metrics -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Completed</div>
+          <div class="metric-val" id="metric-tensors">0 / 0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Throughput</div>
+          <div class="metric-val" id="metric-speed">0.0 MB/s</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Processed</div>
+          <div class="metric-val" id="metric-bytes">0.0 MB</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Elapsed</div>
+          <div class="metric-val" id="metric-time">0.0s</div>
+        </div>
+      </div>
+
+      <!-- Live Progress Bar -->
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+        <div class="progress-bar-text" id="progress-text">READY</div>
+      </div>
+
+      <!-- Terminal Output Box -->
+      <div class="terminal-box" id="terminal-box">[00:00:00] MergeStudio engine ready.
+Select algorithms and weights, then click 'Execute Streaming Merge'.</div>
+    </div>
+  </main>
+
+  <script>
+    let activeMethod = 'slerp';
+
+    // Switch merge algorithm UI
+    document.querySelectorAll('.method-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeMethod = btn.dataset.method;
+
+        document.getElementById('params-slerp').style.display = (activeMethod === 'slerp') ? 'flex' : 'none';
+        document.getElementById('params-ties').style.display = (activeMethod === 'ties') ? 'flex' : 'none';
+        document.getElementById('params-dare').style.display = (activeMethod === 'dare_ties') ? 'flex' : 'none';
+        document.getElementById('params-franken').style.display = (activeMethod === 'frankenmerge') ? 'flex' : 'none';
+
+        logTerminal(`[MODE] Switched active method to: ${activeMethod.toUpperCase()}`, 'log-info');
+      });
+    });
+
+    function updateAlpha(val) {
+      document.getElementById('val-alpha').textContent = parseFloat(val).toFixed(2);
+      redrawCurve();
+    }
+    function updateDensity(val) {
+      document.getElementById('val-density').textContent = parseFloat(val).toFixed(2);
+    }
+    function updateTiesWeight(val) {
+      document.getElementById('val-ties-weight').textContent = parseFloat(val).toFixed(2);
+    }
+    function updateDropRate(val) {
+      document.getElementById('val-drop-rate').textContent = parseFloat(val).toFixed(2);
+    }
+
+    function addSlice() {
+      const container = document.getElementById('slice-container');
+      const div = document.createElement('div');
+      div.className = 'slice-item';
+      div.innerHTML = `
+        <input type="text" value="model_a" style="padding: 0.3rem;" class="slice-model">
+        <input type="text" value="0" style="padding: 0.3rem;" class="slice-start" placeholder="start">
+        <input type="text" value="16" style="padding: 0.3rem;" class="slice-end" placeholder="end">
+        <button class="btn btn-secondary" style="padding: 0.3rem 0.5rem;" onclick="removeSlice(this)">&times;</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function removeSlice(btn) {
+      btn.parentElement.remove();
+    }
+
+    function logTerminal(msg, cls = '') {
+      const box = document.getElementById('terminal-box');
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = msg;
+      box.appendChild(line);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Redraw SVG Weight Curve
+    function redrawCurve() {
+      const svg = document.getElementById('curve-svg');
+      const type = document.getElementById('schedule-type').value;
+      const alpha = parseFloat(document.getElementById('param-alpha').value);
+      const points = [];
+      const total = 32;
+
+      for (let i = 0; i < total; i++) {
+        const t = i / (total - 1);
+        let w = alpha;
+        if (type === 'linear') {
+          w = 0.2 + t * 0.6;
+        } else if (type === 'cosine') {
+          w = 0.2 + ((1.0 - Math.cos(t * Math.PI)) / 2.0) * 0.6;
+        } else if (type === 'sigmoid') {
+          w = 0.2 + (1.0 / (1.0 + Math.exp(-10 * (t - 0.5)))) * 0.6;
+        }
+        const x = (i / (total - 1)) * 280 + 10;
+        const y = 80 - (w * 70);
+        points.push(`${x},${y}`);
+      }
+
+      svg.innerHTML = `
+        <polyline fill="none" stroke="rgba(6, 182, 212, 0.2)" stroke-width="6" points="${points.join(' ')}" />
+        <polyline fill="none" stroke="#06b6d4" stroke-width="2.5" points="${points.join(' ')}" />
+      `;
+    }
+    redrawCurve();
+
+    async function inspectModel(target) {
+      const path = (target === 'model-a') ? document.getElementById('model-a-path').value : document.getElementById('model-b-path').value;
+      logTerminal(`[INSPECT] Querying model metadata at: ${path}...`);
+      try {
+        const res = await fetch('/api/inspect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          logTerminal(`[ERROR] ${err.detail || 'Inspection failed'}`, 'log-err');
+          return;
+        }
+        const data = await res.json();
+        logTerminal(`[METADATA] Tensors: ${data.total_tensors} | Layers: ${data.num_hidden_layers} | Hidden size: ${data.hidden_size}`, 'log-success');
+      } catch (e) {
+        logTerminal(`[ERROR] Network error: ${e.message}`, 'log-err');
+      }
+    }
+
+    async function startMerge() {
+      const modelA = document.getElementById('model-a-path').value;
+      const modelB = document.getElementById('model-b-path').value;
+      const outDir = document.getElementById('output-path').value;
+
+      const plan = {
+        name: `studio-${activeMethod}-merge`,
+        method: activeMethod,
+        models: [
+          { path: modelA, name: "model_a", is_base: true, weight: 1.0 },
+          { path: modelB, name: "model_b", is_base: false, weight: 1.0 }
+        ],
+        base_model: "model_a",
+        slerp_config: {
+          alpha: parseFloat(document.getElementById('param-alpha').value),
+          eps: 1e-7,
+          per_row: false,
+          preserve_norm: true
+        },
+        ties_config: {
+          density: parseFloat(document.getElementById('param-density').value),
+          majority_sign_method: "total",
+          weight: parseFloat(document.getElementById('param-ties-weight').value)
+        },
+        dare_config: {
+          drop_rate: parseFloat(document.getElementById('param-drop-rate').value),
+          rescale: true,
+          base_method: "dare_ties"
+        },
+        slices: [],
+        output_dir: outDir
+      };
+
+      if (activeMethod === 'frankenmerge') {
+        const sliceItems = document.querySelectorAll('.slice-item');
+        sliceItems.forEach(item => {
+          plan.slices.push({
+            source_model: item.querySelector('.slice-model').value,
+            start_layer: parseInt(item.querySelector('.slice-start').value),
+            end_layer: parseInt(item.querySelector('.slice-end').value)
+          });
+        });
+      }
+
+      logTerminal(`[START] Initializing streaming merge job...`, 'log-info');
+      try {
+        const res = await fetch('/api/merge/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(plan)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          logTerminal(`[ERROR] Failed to start merge: ${err.detail}`, 'log-err');
+          return;
+        }
+        const data = await res.json();
+        const jobId = data.job_id;
+        logTerminal(`[JOB] Job dispatched. ID: ${jobId}`, 'log-success');
+
+        connectWebSocket(jobId);
+      } catch (e) {
+        logTerminal(`[ERROR] Start error: ${e.message}`, 'log-err');
+      }
+    }
+
+    function connectWebSocket(jobId) {
+      const proto = (window.location.protocol === 'https:') ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${proto}//${window.location.host}/ws/merge/${jobId}`);
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.progress) {
+          const p = data.progress;
+          const pct = Math.min(100, Math.round((p.completed_tensors / Math.max(1, p.total_tensors)) * 100));
+
+          document.getElementById('progress-fill').style.width = `${pct}%`;
+          document.getElementById('progress-text').textContent = `${pct}% • ${p.current_tensor}`;
+          document.getElementById('metric-tensors').textContent = `${p.completed_tensors} / ${p.total_tensors}`;
+          document.getElementById('metric-speed').textContent = `${p.throughput_mb_s.toFixed(1)} MB/s`;
+          document.getElementById('metric-bytes').textContent = `${(p.bytes_processed / (1024*1024)).toFixed(1)} MB`;
+          document.getElementById('metric-time').textContent = `${p.elapsed_seconds.toFixed(1)}s`;
+
+          logTerminal(`[STREAM] Merged: ${p.current_tensor} (${(p.bytes_processed/(1024*1024)).toFixed(1)} MB)`);
+        }
+
+        if (data.status === 'completed') {
+          document.getElementById('progress-fill').style.width = '100%';
+          document.getElementById('progress-text').textContent = 'COMPLETED 100%';
+          logTerminal(`[COMPLETED] Merged model written to ${data.output_dir}`, 'log-success');
+          ws.close();
+        } else if (data.status === 'failed') {
+          logTerminal(`[FAILED] Error: ${data.error}`, 'log-err');
+          ws.close();
+        }
+      };
+    }
+  </script>
+</body>
+</html>

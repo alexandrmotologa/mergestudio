@@ -1,0 +1,21 @@
+name: slerp-llama3-instruct-math
+method: slerp
+models:
+  - path: ./models/meta-llama-3-8b-instruct
+    name: instruct_donor
+    is_base: true
+  - path: ./models/meta-llama-3-8b-math
+    name: math_donor
+slerp_config:
+  alpha: 0.5
+  eps: 0.0000001
+  per_row: false
+  preserve_norm: true
+weight_schedule:
+  schedule_type: cosine
+  start_weight: 0.3
+  end_weight: 0.7
+streaming_config:
+  output_dtype: float16
+  shard_size_gb: 4.9
+output_dir: ./output/slerp_merged_model

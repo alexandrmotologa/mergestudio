@@ -1,0 +1,22 @@
+name: frankenmerge-llama-11b
+method: frankenmerge
+models:
+  - path: ./models/meta-llama-3-8b-base
+    name: model_base
+    is_base: true
+  - path: ./models/meta-llama-3-8b-instruct
+    name: model_instruct
+slices:
+  - source_model: model_base
+    start_layer: 0
+    end_layer: 16
+  - source_model: model_instruct
+    start_layer: 8
+    end_layer: 24
+  - source_model: model_base
+    start_layer: 16
+    end_layer: 32
+streaming_config:
+  output_dtype: float16
+  shard_size_gb: 4.9
+output_dir: ./output/franken_11b_merged
