@@ -1,0 +1,23 @@
+# Example: Passthrough Frankenmerge layer surgery expanding 8B architecture to 11B
+name: llama-3-franken-11b
+method: frankenmerge
+models:
+  - path: ./models/meta-llama-3-8b-base
+    name: llama_base
+    is_base: true
+  - path: ./models/meta-llama-3-8b-instruct
+    name: llama_instruct
+slices:
+  - source_model: llama_base
+    start_layer: 0
+    end_layer: 16
+  - source_model: llama_instruct
+    start_layer: 8
+    end_layer: 24
+  - source_model: llama_base
+    start_layer: 16
+    end_layer: 32
+streaming_config:
+  output_dtype: float16
+  shard_size_gb: 4.9
+output_dir: ./output/llama-3-11b-merged

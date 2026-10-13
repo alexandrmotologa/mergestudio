@@ -1,0 +1,25 @@
+# Example: TIES merge with fine-tuned donors and task vector negation (unlearning)
+name: mistral-ties-aligned-unlearned
+method: ties
+base_model: mistral_base
+models:
+  - path: ./models/mistral-7b-v0.1
+    name: mistral_base
+    is_base: true
+  - path: ./models/mistral-7b-openorca
+    name: math_reasoning
+    is_negative: false
+  - path: ./models/mistral-7b-code
+    name: code_expert
+    is_negative: false
+  - path: ./models/mistral-7b-refusal
+    name: refusal_aligned
+    is_negative: true
+ties_config:
+  density: 0.25
+  weight: 1.0
+  majority_sign_method: total
+streaming_config:
+  output_dtype: float16
+  shard_size_gb: 4.9
+output_dir: ./output/mistral-ties-unlearned

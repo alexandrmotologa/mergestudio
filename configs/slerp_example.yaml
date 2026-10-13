@@ -1,0 +1,16 @@
+# Example: Spherical Linear Interpolation (SLERP) between two homologous models
+name: llama-3-chat-code-slerp
+method: slerp
+models:
+  - path: ./models/meta-llama-3-8b-instruct
+    name: instruct_donor
+  - path: ./models/meta-llama-3-8b-python
+    name: code_donor
+slerp_config:
+  alpha: 0.5
+  per_row: false
+  preserve_norm: true
+streaming_config:
+  output_dtype: float16
+  shard_size_gb: 4.9
+output_dir: ./output/llama-3-slerp-merged

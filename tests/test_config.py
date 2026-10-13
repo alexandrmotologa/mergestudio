@@ -127,3 +127,16 @@ def test_merge_plan_serialization(tmp_path):
     assert loaded.name == "test-slerp"
     assert loaded.method == MergeMethod.SLERP
     assert len(loaded.models) == 2
+
+
+def test_example_configs_validity():
+    from pathlib import Path
+    configs_dir = Path(__file__).parent.parent / "configs"
+    yaml_files = list(configs_dir.glob("*.yaml"))
+    assert len(yaml_files) >= 4
+    for yf in yaml_files:
+        plan = MergePlan.load_yaml(yf)
+        assert plan.name
+        assert plan.method
+        assert len(plan.models) >= 2
+

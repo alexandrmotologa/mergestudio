@@ -1,0 +1,19 @@
+# Example: Drop And Rescale (DARE-TIES) with multiple domain adapters
+name: llama-3-dare-ties-multidomain
+method: dare_ties
+base_model: llama_base
+models:
+  - path: ./models/meta-llama-3-8b-base
+    name: llama_base
+    is_base: true
+  - path: ./models/meta-llama-3-8b-instruct
+    name: instruct_donor
+  - path: ./models/meta-llama-3-8b-math
+    name: math_donor
+dare_config:
+  drop_rate: 0.4
+  rescale: true
+streaming_config:
+  output_dtype: float16
+  shard_size_gb: 4.9
+output_dir: ./output/llama-3-dare-merged
