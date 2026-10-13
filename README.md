@@ -1,17 +1,19 @@
-<div align="center">
+<p align="center">
+  <img src="docs/images/logo.png?raw=true" alt="MergeStudio Logo" width="130" style="border-radius: 28px;" />
+</p>
 
-<img src="docs/images/logo.svg" alt="MergeStudio Logo" width="100" height="100" />
+<h1 align="center">MergeStudio</h1>
 
-# MergeStudio
+<p align="center">
+  <strong>Visual model merging, layer surgery, and weight interpolation studio for local LLMs.</strong>
+</p>
 
-**Visual model merging, layer surgery, and weight interpolation studio for local LLMs.**
-
-[![PyPI version](https://img.shields.io/badge/pypi-v0.1.0-blue.svg)](https://pypi.org/project/mergestudio/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Code Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)](tests/)
-
-</div>
+<p align="center">
+  <a href="https://pypi.org/project/mergestudio/"><img src="https://img.shields.io/badge/pypi-v0.1.0-blue.svg" alt="PyPI version" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+" /></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/coverage-88%25-brightgreen.svg" alt="Code Coverage" /></a>
+</p>
 
 ---
 
@@ -43,7 +45,17 @@ The engine uses memory mapped `safetensors` readers and chunked streaming writer
 
 MergeStudio includes an interactive Web Studio running on FastAPI. It provides an SVG curve editor for layer weight progression, interactive layer surgery slicing, divergence inspection, model health audits, and real time streaming telemetry over WebSockets.
 
+### 1. Main Studio Dashboard & Weight Curves
 ![MergeStudio Studio UI](docs/images/mergestudio_studio.png)
+
+### 2. TIES Merging with Task Vector Negation (Unlearning)
+![MergeStudio TIES Mode](docs/images/mergestudio_ties.png)
+
+### 3. Frankenmerge Layer Surgery & Slice Editor
+![MergeStudio Frankenmerge Mode](docs/images/mergestudio_franken.png)
+
+### 4. Zero-RAM Streaming Telemetry & Health Audit
+![MergeStudio Completed Telemetry](docs/images/mergestudio_completed.png)
 
 To launch the studio:
 

@@ -1,31 +1,128 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#06b6d4" />
-      <stop offset="100%" stop-color="#3b82f6" />
+    <clipPath id="squircle-clip">
+      <rect x="24" y="24" width="976" height="976" rx="220" />
+    </clipPath>
+
+    <linearGradient id="cyan-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f5ff"/>
+      <stop offset="100%" stop-color="#0284c7"/>
     </linearGradient>
-    <linearGradient id="grad2" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#8b5cf6" />
-      <stop offset="100%" stop-color="#ec4899" />
+
+    <linearGradient id="amber-core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#ea580c"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="4" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+
+    <linearGradient id="slate-plate" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <filter id="subtle-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.14" />
     </filter>
   </defs>
-  <!-- Rounded Squircle Base -->
-  <rect x="8" y="8" width="104" height="104" rx="28" fill="#0d131f" stroke="#212c42" stroke-width="2" />
-  
-  <!-- Intersecting Model Manifolds / Tensor Orbit -->
-  <path d="M 30 60 C 30 40, 50 32, 60 48 C 70 64, 90 60, 90 40" fill="none" stroke="url(#grad1)" stroke-width="5" stroke-linecap="round" />
-  <path d="M 30 80 C 30 60, 50 56, 60 72 C 70 88, 90 80, 90 60" fill="none" stroke="url(#grad2)" stroke-width="5" stroke-linecap="round" />
-  
-  <!-- Spherical Linear Core Nodes -->
-  <circle cx="30" cy="60" r="4.5" fill="#06b6d4" filter="url(#glow)" />
-  <circle cx="60" cy="48" r="5" fill="#f8fafc" />
-  <circle cx="90" cy="40" r="4.5" fill="#3b82f6" filter="url(#glow)" />
-  
-  <circle cx="30" cy="80" r="4.5" fill="#8b5cf6" filter="url(#glow)" />
-  <circle cx="60" cy="72" r="5" fill="#f8fafc" />
-  <circle cx="90" cy="60" r="4.5" fill="#ec4899" filter="url(#glow)" />
+
+  <!-- Luxury White Squircle Container -->
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="6" />
+
+  <g clip-path="url(#squircle-clip)">
+    <g transform="translate(512, 512)" filter="url(#subtle-shadow)">
+
+      <!-- Hexagonal Architectural Gateway -->
+      <polygon points="
+        0,-395
+        342,-198
+        342,198
+        0,395
+        -342,198
+        -342,-198
+      " fill="none" stroke="#0f172a" stroke-width="36" stroke-linejoin="round" />
+
+      <polygon points="
+        0,-360
+        310,-180
+        310,180
+        0,360
+        -310,180
+        -310,-180
+      " fill="none" stroke="#00f5ff" stroke-width="4" opacity="0.45" stroke-dasharray="16, 12" />
+
+      <!-- Surgical Chimera Owl - Watertight Solid Obsidian Silhouette Base -->
+      <path d="
+        M 0,-325
+        L 95,-280 L 160,-335 L 140,-200 L 220,-110 L 245,50 L 190,190 L 145,290 L 0,335
+        L -145,290 L -190,190 L -245,50 L -220,-110 L -140,-200 L -160,-335 L -95,-280
+        Z
+      " fill="#0b0f19" />
+
+      <!-- Outer Wing Facets (Layer Surgery Plumes) -->
+      <!-- Right Wing Plumes -->
+      <polygon points="140,-200 220,-110 150,-90" fill="#1e293b" />
+      <polygon points="220,-110 245,50 160,10" fill="#0f172a" />
+      <polygon points="245,50 190,190 140,110" fill="#1e293b" />
+      <polygon points="190,190 145,290 90,220" fill="#0f172a" />
+      
+      <!-- Left Wing Plumes (Symmetric) -->
+      <polygon points="-140,-200 -220,-110 -150,-90" fill="#334155" />
+      <polygon points="-220,-110 -245,50 -160,10" fill="#1e293b" />
+      <polygon points="-245,50 -190,190 -140,110" fill="#334155" />
+      <polygon points="-190,190 -145,290 -90,220" fill="#1e293b" />
+
+      <!-- Crown Tufts / Ear Horns -->
+      <polygon points="0,-325 95,-280 40,-230" fill="#334155" />
+      <polygon points="0,-325 -95,-280 -40,-230" fill="#475569" />
+      <polygon points="95,-280 160,-335 110,-220" fill="#1e293b" />
+      <polygon points="-95,-280 -160,-335 -110,-220" fill="#334155" />
+
+      <!-- Facial Mask Disks (Binocular Precision Geometry) -->
+      <polygon points="0,-230 40,-230 110,-220 70,-130 0,-160" fill="#1e293b" />
+      <polygon points="0,-230 -40,-230 -110,-220 -70,-130 0,-160" fill="#334155" />
+      <polygon points="70,-130 140,-200 150,-90 60,-80" fill="#0f172a" />
+      <polygon points="-70,-130 -140,-200 -150,-90 -60,-80" fill="#1e293b" />
+
+      <!-- Predatory Almond Optics (Hyperspherical SLERP Geometry) -->
+      <!-- Right Eye Socket & Lens -->
+      <polygon points="35,-140 85,-155 70,-115 25,-110" fill="#050811" />
+      <polygon points="40,-138 80,-150 65,-120 32,-115" fill="url(#cyan-glow)" />
+      <polygon points="50,-136 65,-142 58,-124 45,-120" fill="#ffffff" opacity="0.8" />
+      <line x1="55" y1="-146" x2="52" y2="-117" stroke="#050811" stroke-width="3" stroke-linecap="round" />
+
+      <!-- Left Eye Socket & Lens -->
+      <polygon points="-35,-140 -85,-155 -70,-115 -25,-110" fill="#050811" />
+      <polygon points="-40,-138 -80,-150 -65,-120 -32,-115" fill="url(#cyan-glow)" />
+      <polygon points="-50,-136 -65,-142 -58,-124 -45,-120" fill="#ffffff" opacity="0.8" />
+      <line x1="-55" y1="-146" x2="-52" y2="-117" stroke="#050811" stroke-width="3" stroke-linecap="round" />
+
+      <!-- Surgical Amber Beak (Chevron Precision) -->
+      <polygon points="0,-160 20,-115 0,-40" fill="#d97706" />
+      <polygon points="0,-160 -20,-115 0,-40" fill="#f59e0b" />
+      <polygon points="0,-160 8,-115 0,-40" fill="#fbbf24" opacity="0.6" />
+
+      <!-- Breastplate: Neural Weight Interpolation Core & SLERP Compass Arc -->
+      <polygon points="0,-40 60,-80 80,10 0,60" fill="#1e293b" />
+      <polygon points="0,-40 -60,-80 -80,10 0,60" fill="#334155" />
+
+      <!-- SLERP Hyperspherical Geodesic Ring Arc on Chest -->
+      <path d="M -70,25 A 75,75 0 0,1 70,25" fill="none" stroke="#00f5ff" stroke-width="6" stroke-linecap="round" opacity="0.9" />
+      <circle cx="0" cy="25" r="7" fill="#00f5ff" />
+      <circle cx="-50" cy="38" r="4" fill="#38bdf8" />
+      <circle cx="50" cy="38" r="4" fill="#38bdf8" />
+
+      <!-- Lower Torso & Spliced Layer Armor (Frankenmerge Tier Plates) -->
+      <polygon points="0,60 80,10 140,110 60,160 0,140" fill="#0f172a" />
+      <polygon points="0,60 -80,10 -140,110 -60,160 0,140" fill="#1e293b" />
+
+      <polygon points="0,140 60,160 90,220 0,250" fill="#1e293b" />
+      <polygon points="0,140 -60,160 -90,220 0,250" fill="#334155" />
+
+      <!-- Tail Plumes / Foundation Anchor -->
+      <polygon points="0,250 90,220 145,290 0,335" fill="#0b0f19" />
+      <polygon points="0,250 -90,220 -145,290 0,335" fill="#1e293b" />
+      <polygon points="0,250 35,290 0,335" fill="#38bdf8" opacity="0.3" />
+      <polygon points="0,250 -35,290 0,335" fill="#0284c7" opacity="0.4" />
+
+    </g>
+  </g>
 </svg>

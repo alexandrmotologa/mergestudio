@@ -264,3 +264,7 @@ def _run_job_worker(job: MergeJobState) -> None:
     except Exception as exc:
         job.status = "failed"
         job.error = str(exc)
+
+
+app = create_app()
+
