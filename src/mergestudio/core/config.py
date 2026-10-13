@@ -49,6 +49,7 @@ class ModelSource(BaseModel):
     path: str = Field(description="Local directory path containing safetensors files")
     name: Optional[str] = Field(default=None, description="Human friendly identifier")
     is_base: bool = Field(default=False, description="Flag indicating if this model is the base anchor")
+    is_negative: bool = Field(default=False, description="Flag indicating negative vector unlearning")
     weight: float = Field(default=1.0, ge=0.0, description="Relative weighting coefficient")
 
     @field_validator("path")

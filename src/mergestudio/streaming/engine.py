@@ -249,6 +249,14 @@ class StreamingMergeEngine:
         # Copy auxiliary model configurations and tokenizers
         self._copy_metadata(model_indices, base_model_idx, surgery_planner)
 
+        # Generate Ollama Modelfile and GGUF quantization script
+        try:
+            from mergestudio.export.ollama import generate_gguf_conversion_script, generate_ollama_modelfile
+            generate_ollama_modelfile(self.output_dir)
+            generate_gguf_conversion_script(self.output_dir)
+        except Exception:
+            pass
+
         return self.output_dir
 
     def _matches_filter(self, key: str) -> bool:
@@ -293,6 +301,10 @@ class StreamingMergeEngine:
             if t0 is None and t1 is None:
                 return []
 
+            if t0.shape != t1.shape and any(emb in key.lower() for emb in ("embed_tokens", "lm_head", "wte", "embedding")):
+                from mergestudio.surgery.vocab import reconcile_embedding_shapes
+                t0, t1 = reconcile_embedding_shapes(t0, t1)
+
             # Check layer weight schedule
             layer_info = LayerSurgeryPlanner.extract_layer_index(key)
             alpha = self.plan.slerp_config.alpha
@@ -313,13 +325,18 @@ class StreamingMergeEngine:
 
             donor_tensors = []
             weights = []
+            neg_flags = []
             for m in self.plan.models:
                 if not m.is_base:
                     m_id = m.name or Path(m.path).name
                     t = model_indices[m_id].get_tensor(key)
                     if t is not None:
+                        if t.shape != base_t.shape and any(emb in key.lower() for emb in ("embed_tokens", "lm_head", "wte", "embedding")):
+                            from mergestudio.surgery.vocab import reconcile_embedding_shapes
+                            base_t, t = reconcile_embedding_shapes(base_t, t)
                         donor_tensors.append(t)
                         weights.append(m.weight)
+                        neg_flags.append(m.is_negative)
 
             if not donor_tensors:
                 return [(key, base_t)]
@@ -328,6 +345,7 @@ class StreamingMergeEngine:
                 base=base_t,
                 models=donor_tensors,
                 model_weights=weights,
+                negative_mask=neg_flags,
                 config=self.plan.ties_config,
             )
             return [(key, merged)]
@@ -341,13 +359,18 @@ class StreamingMergeEngine:
 
             donor_tensors = []
             weights = []
+            neg_flags = []
             for m in self.plan.models:
                 if not m.is_base:
                     m_id = m.name or Path(m.path).name
                     t = model_indices[m_id].get_tensor(key)
                     if t is not None:
+                        if t.shape != base_t.shape and any(emb in key.lower() for emb in ("embed_tokens", "lm_head", "wte", "embedding")):
+                            from mergestudio.surgery.vocab import reconcile_embedding_shapes
+                            base_t, t = reconcile_embedding_shapes(base_t, t)
                         donor_tensors.append(t)
                         weights.append(m.weight)
+                        neg_flags.append(m.is_negative)
 
             if not donor_tensors:
                 return [(key, base_t)]
@@ -356,6 +379,7 @@ class StreamingMergeEngine:
                 base=base_t,
                 models=donor_tensors,
                 model_weights=weights,
+                negative_mask=neg_flags,
                 config=self.plan.dare_config,
             )
             return [(key, merged)]

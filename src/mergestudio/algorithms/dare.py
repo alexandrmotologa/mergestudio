@@ -22,6 +22,7 @@ def dare_merge(
     base_method: MergeMethod = MergeMethod.DARE_TIES,
     seed: Optional[int] = None,
     model_weights: Optional[Sequence[float]] = None,
+    negative_mask: Optional[Sequence[bool]] = None,
     config: Optional[DareConfig] = None,
 ) -> torch.Tensor:
     """Merge donor models into base using Drop And REscale (DARE).
@@ -34,6 +35,7 @@ def dare_merge(
         base_method: Reduction variant, either DARE_TIES or DARE_LINEAR.
         seed: Optional random seed for reproducible Bernoulli sampling.
         model_weights: Optional relative weighting coefficients for donor models.
+        negative_mask: Optional boolean sequence marking models whose task vectors should be negated (unlearned).
         config: Optional DareConfig instance overriding parameters.
 
     Returns:
@@ -61,8 +63,13 @@ def dare_merge(
         generator = torch.Generator(device=base.device)
         generator.manual_seed(seed)
 
-    # Step 1: Compute task vectors
-    task_vectors = [m.to(calc_dtype) - base_calc for m in models]
+    # Step 1: Compute task vectors (with optional negation for unlearning)
+    task_vectors = []
+    for i, m in enumerate(models):
+        delta = m.to(calc_dtype) - base_calc
+        if negative_mask and i < len(negative_mask) and negative_mask[i]:
+            delta = -delta
+        task_vectors.append(delta)
     num_models = len(task_vectors)
 
     keep_prob = 1.0 - drop_rate

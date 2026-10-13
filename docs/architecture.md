@@ -65,3 +65,48 @@ This preserves the mathematical expectation $\mathbb{E}[\tau_i^{(DARE)}] = \tau_
 ```
 
 MergeStudio maps files into virtual memory using `safetensors.safe_open`. Only the parameters corresponding to the currently processed key are brought into RAM. After merging, the resulting tensor is passed to `ShardedSafetensorsWriter`, which writes to temporary shards and releases references, keeping memory usage constant regardless of model depth.
+
+---
+
+## 5. Layer Divergence & Cosine Similarity Inspector
+
+Before executing a merge, MergeStudio can evaluate parameter drift across layers to detect where fine tuning modified weights:
+
+$$\text{Cosine Similarity}_l = \frac{1}{|K_l|} \sum_{k \in K_l} \frac{\langle W_{A, k}, W_{B, k} \rangle}{\|W_{A, k}\|_F \|W_{B, k}\|_F}$$
+
+$$\text{Frobenius Drift}_l = \frac{\|W_{A, k} - W_{B, k}\|_F}{\|W_{A, k}\|_F}$$
+
+The analyzer produces an adaptive schedule that retains base parameters on near identical layers while assigning higher donor weight to heavily adapted layers.
+
+---
+
+## 6. Task Vector Negation (Unlearning)
+
+For unlearning specific behaviors (e.g. excessive refusal, bias, or unwanted styles), MergeStudio supports negative task vectors:
+
+$$\tau_{unlearn} = -\gamma (\theta_{unwanted} - \theta_{base})$$
+
+Negative vectors participate in sign election and disjoint merging with inverted signs, shifting base weights away from unwanted behaviors.
+
+---
+
+## 7. Vocabulary Surgery & Embedding Alignment
+
+When merging models with different tokenizer vocabulary sizes (e.g. 128,000 vs 128,256 tokens), standard matrix operations fail. MergeStudio reconciles embedding matrices (`embed_tokens` and `lm_head`) by automatically padding the smaller matrix with matching tokens or zeros, updating the target `vocab_size` in `config.json`.
+
+---
+
+## 8. Ollama Modelfile & GGUF Quantization
+
+Upon merge completion, MergeStudio automatically inspects `tokenizer_config.json` to generate:
+- A configured `Modelfile` with correct chat template and stop tokens.
+- A conversion script `quantize_model.sh` for `llama.cpp` quantization into `Q4_K_M` and `Q8_0` GGUF binaries.
+
+---
+
+## 9. Model Health Smoke-Testing
+
+A post merge auditor scans all output tensors to verify:
+- Absence of `NaN` or `Inf` weights.
+- Weight norm stability across layers.
+- Completeness of transformer blocks according to `config.json`.

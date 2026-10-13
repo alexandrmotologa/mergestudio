@@ -21,6 +21,7 @@ def ties_merge(
     weight: float = 1.0,
     normalize_signs: bool = True,
     model_weights: Optional[Sequence[float]] = None,
+    negative_mask: Optional[Sequence[bool]] = None,
     config: Optional[TiesConfig] = None,
 ) -> torch.Tensor:
     """Merge fine tuned model tensors into a base tensor using TIES-Merging.
@@ -33,6 +34,7 @@ def ties_merge(
         weight: Global multiplier lambda applied to the aggregated task vector.
         normalize_signs: If True, zero out parameters whose sign conflicts with the elected sign.
         model_weights: Optional relative weighting coefficients for each donor model.
+        negative_mask: Optional boolean sequence marking models whose task vectors should be negated (unlearned).
         config: Optional TiesConfig instance overriding discrete parameters.
 
     Returns:
@@ -59,8 +61,13 @@ def ties_merge(
     calc_dtype = torch.float64 if orig_dtype == torch.float64 else torch.float32
     base_calc = base.to(calc_dtype)
 
-    # Step 1: Compute task vectors (deltas)
-    task_vectors = [m.to(calc_dtype) - base_calc for m in models]
+    # Step 1: Compute task vectors (deltas with optional negation for unlearning)
+    task_vectors = []
+    for i, m in enumerate(models):
+        delta = m.to(calc_dtype) - base_calc
+        if negative_mask and i < len(negative_mask) and negative_mask[i]:
+            delta = -delta
+        task_vectors.append(delta)
     num_models = len(task_vectors)
 
     weights_tensor = (

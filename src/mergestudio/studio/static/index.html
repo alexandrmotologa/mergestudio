@@ -431,6 +431,26 @@
           <input type="text" id="model-b-path" placeholder="./models/llama-3-8b-instruct" style="flex: 1;" value="./models/donor_model">
           <button class="btn btn-secondary" onclick="inspectModel('model-b')">Inspect</button>
         </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+          <input type="checkbox" id="model-b-neg" style="cursor: pointer;">
+          <label for="model-b-neg" style="font-size: 0.75rem; cursor: pointer; color: var(--text-muted); margin: 0;">Negate Task Vector (Unlearning / Anti-Refusal)</label>
+        </div>
+      </div>
+
+      <!-- Layer Divergence Analytics -->
+      <div class="control-group" style="background: var(--bg-input); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="font-weight: 600; color: var(--text-main);">Layer Divergence Inspector</label>
+          <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="analyzeDivergence()">Analyze Drift</button>
+        </div>
+        <div id="divergence-results" style="display: none; margin-top: 0.5rem; flex-direction: column; gap: 0.4rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem;">
+            <span>Mean Cosine Sim: <strong id="mean-sim-val" style="color: var(--accent-emerald);">0.00</strong></span>
+            <span>Max Drift: <strong id="max-drift-layer" style="color: var(--accent-amber);">Layer 0</strong></span>
+          </div>
+          <div id="divergence-bars" style="display: flex; height: 16px; gap: 2px; background: #000; border-radius: 4px; overflow: hidden; padding: 1px;"></div>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.3rem;" onclick="applyAdaptiveSchedule()">Auto-Fit Weights from Drift</button>
+        </div>
       </div>
 
       <!-- Output Directory -->
@@ -486,6 +506,7 @@
           <option value="linear">Linear Progression</option>
           <option value="cosine" selected>Cosine Smooth</option>
           <option value="sigmoid">Sigmoid S-Curve</option>
+          <option value="custom">Adaptive Drift Fit</option>
         </select>
         <div class="curve-canvas-wrap">
           <svg class="curve-svg" id="curve-svg" viewBox="0 0 300 90"></svg>
@@ -536,6 +557,12 @@
       <!-- Terminal Output Box -->
       <div class="terminal-box" id="terminal-box">[00:00:00] MergeStudio engine ready.
 Select algorithms and weights, then click 'Execute Streaming Merge'.</div>
+
+      <!-- Post-Merge Action Toolbar -->
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="auditModelHealth()">Audit Model Health</button>
+        <button class="btn btn-secondary" onclick="exportOllamaModelfile()">Generate Ollama Modelfile</button>
+      </div>
     </div>
   </main>
 
@@ -659,7 +686,7 @@ Select algorithms and weights, then click 'Execute Streaming Merge'.</div>
         method: activeMethod,
         models: [
           { path: modelA, name: "model_a", is_base: true, weight: 1.0 },
-          { path: modelB, name: "model_b", is_base: false, weight: 1.0 }
+          { path: modelB, name: "model_b", is_base: false, is_negative: document.getElementById('model-b-neg').checked, weight: 1.0 }
         ],
         base_model: "model_a",
         slerp_config: {
@@ -681,6 +708,13 @@ Select algorithms and weights, then click 'Execute Streaming Merge'.</div>
         slices: [],
         output_dir: outDir
       };
+
+      if (window.customAdaptiveWeights && document.getElementById('schedule-type').value === 'custom') {
+        plan.weight_schedule = {
+          schedule_type: 'custom',
+          custom_weights: window.customAdaptiveWeights
+        };
+      }
 
       if (activeMethod === 'frankenmerge') {
         const sliceItems = document.querySelectorAll('.slice-item');
@@ -745,6 +779,104 @@ Select algorithms and weights, then click 'Execute Streaming Merge'.</div>
           ws.close();
         }
       };
+    }
+
+    async function analyzeDivergence() {
+      const modelA = document.getElementById('model-a-path').value;
+      const modelB = document.getElementById('model-b-path').value;
+      logTerminal(`[ANALYZE] Computing layer divergence between ${modelA} and ${modelB}...`, 'log-info');
+
+      try {
+        const res = await fetch('/api/analyze/divergence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model_a: modelA, model_b: modelB })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          logTerminal(`[ERROR] ${err.detail || 'Analysis failed'}`, 'log-err');
+          return;
+        }
+        const data = await res.json();
+        document.getElementById('divergence-results').style.display = 'flex';
+        document.getElementById('mean-sim-val').textContent = data.mean_cosine_similarity.toFixed(4);
+        document.getElementById('max-drift-layer').textContent = `Layer ${data.max_divergence_layer}`;
+
+        window.lastDivergenceReport = data;
+        window.customAdaptiveWeights = data.adaptive_schedule_weights;
+
+        const barsContainer = document.getElementById('divergence-bars');
+        barsContainer.innerHTML = '';
+        data.layer_metrics.forEach(m => {
+          const bar = document.createElement('div');
+          bar.style.flex = '1';
+          bar.style.height = '100%';
+          // Color based on cosine sim
+          const color = m.cosine > 0.98 ? '#10b981' : (m.cosine > 0.90 ? '#f59e0b' : '#ef4444');
+          bar.style.background = color;
+          bar.title = `Layer ${m.layer}: Cosine Sim ${m.cosine}, Drift ${m.frob_drift}`;
+          barsContainer.appendChild(bar);
+        });
+
+        logTerminal(`[DIVERGENCE] Analysis complete. Mean similarity: ${data.mean_cosine_similarity.toFixed(4)}. Highest drift at Layer ${data.max_divergence_layer}.`, 'log-success');
+      } catch (e) {
+        logTerminal(`[ERROR] Divergence network error: ${e.message}`, 'log-err');
+      }
+    }
+
+    function applyAdaptiveSchedule() {
+      if (!window.customAdaptiveWeights) {
+        logTerminal('[WARN] Run Layer Divergence Analysis first.', 'log-warn');
+        return;
+      }
+      document.getElementById('schedule-type').value = 'custom';
+      redrawCurve();
+      logTerminal('[SCHEDULE] Adaptive weight schedule applied to merge planner.', 'log-success');
+    }
+
+    async function auditModelHealth() {
+      const outDir = document.getElementById('output-path').value;
+      logTerminal(`[AUDIT] Auditing model health and numerical stability at ${outDir}...`, 'log-info');
+      try {
+        const res = await fetch('/api/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model_dir: outDir })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          logTerminal(`[ERROR] ${err.detail || 'Audit request failed'}`, 'log-err');
+          return;
+        }
+        const data = await res.json();
+        const statusClass = data.healthy ? 'log-success' : 'log-err';
+        logTerminal(`[STATUS] ${data.status} | Parameters: ${data.total_parameters.toLocaleString()} | Mean norm: ${data.mean_weight_norm}`, statusClass);
+        data.diagnostics.forEach(d => logTerminal(`  • ${d}`));
+      } catch (e) {
+        logTerminal(`[ERROR] Audit error: ${e.message}`, 'log-err');
+      }
+    }
+
+    async function exportOllamaModelfile() {
+      const outDir = document.getElementById('output-path').value;
+      logTerminal(`[OLLAMA] Generating Ollama Modelfile and GGUF quantization script for ${outDir}...`, 'log-info');
+      try {
+        const res = await fetch('/api/export/ollama', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model_dir: outDir })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          logTerminal(`[ERROR] ${err.detail || 'Export request failed'}`, 'log-err');
+          return;
+        }
+        const data = await res.json();
+        logTerminal(`[OLLAMA] Successfully generated Modelfile: ${data.modelfile}`, 'log-success');
+        logTerminal(`[GGUF] Generated quantization script: ${data.quantize_script}`, 'log-success');
+      } catch (e) {
+        logTerminal(`[ERROR] Export error: ${e.message}`, 'log-err');
+      }
     }
   </script>
 </body>

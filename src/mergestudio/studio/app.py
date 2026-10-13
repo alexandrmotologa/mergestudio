@@ -88,6 +88,77 @@ def create_app() -> FastAPI:
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc))
 
+    @app.post("/api/analyze/divergence")
+    async def analyze_divergence(req: Dict[str, str]) -> Dict[str, Any]:
+        p_a = Path(req.get("model_a", ""))
+        p_b = Path(req.get("model_b", ""))
+        if not p_a.exists() or not p_b.exists():
+            raise HTTPException(status_code=404, detail="One or both model paths do not exist")
+
+        try:
+            from mergestudio.analysis.divergence import analyze_layer_divergence
+            report = analyze_layer_divergence(p_a, p_b)
+            return {
+                "model_a": report.model_a,
+                "model_b": report.model_b,
+                "total_layers": report.total_layers,
+                "mean_cosine_similarity": round(report.mean_cosine_similarity, 4),
+                "max_divergence_layer": report.max_divergence_layer,
+                "adaptive_schedule_weights": report.adaptive_schedule_weights,
+                "layer_metrics": [
+                    {
+                        "layer": m.layer_idx,
+                        "cosine": round(m.cosine_similarity, 4),
+                        "frob_drift": round(m.frobenius_drift, 4),
+                        "angular_dist": round(m.angular_distance, 4),
+                    }
+                    for m in report.layer_metrics
+                ],
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    @app.post("/api/evaluate")
+    async def evaluate_endpoint(req: Dict[str, str]) -> Dict[str, Any]:
+        p = Path(req.get("model_dir", ""))
+        if not p.exists():
+            raise HTTPException(status_code=404, detail=f"Model directory not found: {p}")
+
+        try:
+            from mergestudio.evaluation.smoke_test import evaluate_model_health
+            report = evaluate_model_health(p)
+            return {
+                "model_dir": report.model_dir,
+                "total_tensors": report.total_tensors,
+                "total_parameters": report.total_parameters,
+                "has_nan": report.has_nan,
+                "has_inf": report.has_inf,
+                "healthy": report.healthy,
+                "mean_weight_norm": report.mean_weight_norm,
+                "status": report.status,
+                "diagnostics": report.diagnostics,
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    @app.post("/api/export/ollama")
+    async def export_ollama_endpoint(req: Dict[str, str]) -> Dict[str, Any]:
+        p = Path(req.get("model_dir", ""))
+        if not p.exists():
+            raise HTTPException(status_code=404, detail=f"Model directory not found: {p}")
+
+        try:
+            from mergestudio.export.ollama import generate_gguf_conversion_script, generate_ollama_modelfile
+            modelfile = generate_ollama_modelfile(p)
+            script = generate_gguf_conversion_script(p)
+            return {
+                "modelfile": str(modelfile),
+                "quantize_script": str(script),
+                "status": "success",
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+
     @app.post("/api/plan/validate")
     async def validate_plan(plan_data: Dict[str, Any]) -> Dict[str, Any]:
         try:

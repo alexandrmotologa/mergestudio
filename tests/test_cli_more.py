@@ -19,8 +19,8 @@ def mock_cli_models_dare(tmp_path):
     m1_dir.mkdir()
     m2_dir.mkdir()
 
-    save_file({"layer1": torch.tensor([1.0, 2.0, 3.0])}, m1_dir / "model.safetensors")
-    save_file({"layer1": torch.tensor([2.0, 3.0, 4.0])}, m2_dir / "model.safetensors")
+    save_file({"model.layers.0.mlp.weight": torch.tensor([1.0, 2.0, 3.0])}, m1_dir / "model.safetensors")
+    save_file({"model.layers.0.mlp.weight": torch.tensor([2.0, 3.0, 4.0])}, m2_dir / "model.safetensors")
 
     cfg = {"num_hidden_layers": 2, "hidden_size": 3}
     with open(m1_dir / "config.json", "w") as f:
@@ -79,3 +79,47 @@ def test_cli_merge_missing_config():
     result = runner.invoke(app, ["merge", "-c", "non_existent_file.yaml"])
     assert result.exit_code == 1
     assert "not found" in result.stdout
+
+
+def test_cli_ties_with_negative_unlearning(mock_cli_models_dare, tmp_path):
+    m1_dir, m2_dir = mock_cli_models_dare
+    out_dir = tmp_path / "cli_unlearn_out"
+
+    result = runner.invoke(
+        app,
+        [
+            "ties",
+            "--base", str(m1_dir),
+            "-d", str(m2_dir),
+            "-n", str(m2_dir),
+            "--output", str(out_dir),
+        ],
+    )
+    assert result.exit_code == 0
+    assert (out_dir / "model.safetensors").exists()
+
+
+def test_cli_analyze_divergence(mock_cli_models_dare):
+    m1_dir, m2_dir = mock_cli_models_dare
+    result = runner.invoke(
+        app,
+        [
+            "analyze-divergence",
+            "--model-a", str(m1_dir),
+            "--model-b", str(m2_dir),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "Layer Divergence Report" in result.stdout
+
+
+def test_cli_export_ollama_and_evaluate(mock_cli_models_dare):
+    m1_dir, _ = mock_cli_models_dare
+    res_export = runner.invoke(app, ["export-ollama", str(m1_dir)])
+    assert res_export.exit_code == 0
+    assert "Ollama & GGUF Artifacts" in res_export.stdout
+
+    res_eval = runner.invoke(app, ["evaluate", str(m1_dir)])
+    assert res_eval.exit_code == 0
+    assert "Model Health Audit" in res_eval.stdout
+

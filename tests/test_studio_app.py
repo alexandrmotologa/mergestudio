@@ -98,3 +98,37 @@ def test_serve_index(client):
     res = client.get("/")
     assert res.status_code == 200
     assert "MergeStudio" in res.text
+
+
+def test_api_analyze_divergence(client, tmp_path):
+    m1 = tmp_path / "div1"
+    m2 = tmp_path / "div2"
+    m1.mkdir()
+    m2.mkdir()
+    save_file({"model.layers.0.mlp.weight": torch.ones(2, 2)}, m1 / "model.safetensors")
+    save_file({"model.layers.0.mlp.weight": torch.ones(2, 2)}, m2 / "model.safetensors")
+
+    res = client.post("/api/analyze/divergence", json={"model_a": str(m1), "model_b": str(m2)})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_layers"] == 1
+    assert data["mean_cosine_similarity"] == 1.0
+
+
+def test_api_evaluate(client, test_models):
+    m1, _ = test_models
+    res = client.post("/api/evaluate", json={"model_dir": str(m1)})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["healthy"] is True
+    assert data["total_tensors"] == 1
+
+
+def test_api_export_ollama(client, test_models):
+    m1, _ = test_models
+    res = client.post("/api/export/ollama", json={"model_dir": str(m1)})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "Modelfile" in data["modelfile"]
+

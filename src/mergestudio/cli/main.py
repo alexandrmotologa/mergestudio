@@ -93,14 +93,18 @@ def slerp(
 def ties(
     base: Path = typer.Option(..., "--base", help="Path to base anchor model"),
     donors: List[Path] = typer.Option(..., "--donor", "-d", help="Paths to fine tuned donor models"),
+    negatives: Optional[List[Path]] = typer.Option(None, "--negative", "-n", help="Paths to models to unlearn / negate"),
     density: float = typer.Option(0.2, "--density", help="Fraction of top weights to retain (0.0 to 1.0)"),
     weight: float = typer.Option(1.0, "--weight", help="Global scaling lambda multiplier"),
     output: Path = typer.Option(Path("./output/ties_merged"), "--output", "-o", help="Output directory"),
 ) -> None:
-    """Merge multiple fine-tuned models into a base anchor model using TIES-Merging."""
+    """Merge multiple fine-tuned models into a base anchor model using TIES-Merging with optional unlearning."""
     models = [ModelSource(path=str(base), name="base", is_base=True)]
     for i, d in enumerate(donors, start=1):
-        models.append(ModelSource(path=str(d), name=f"donor_{i}"))
+        models.append(ModelSource(path=str(d), name=f"donor_{i}", is_negative=False))
+    if negatives:
+        for j, neg in enumerate(negatives, start=1):
+            models.append(ModelSource(path=str(neg), name=f"negative_{j}", is_negative=True))
 
     plan = MergePlan(
         name="cli-ties",
@@ -117,14 +121,18 @@ def ties(
 def dare(
     base: Path = typer.Option(..., "--base", help="Path to base anchor model"),
     donors: List[Path] = typer.Option(..., "--donor", "-d", help="Paths to fine tuned donor models"),
+    negatives: Optional[List[Path]] = typer.Option(None, "--negative", "-n", help="Paths to models to unlearn / negate"),
     drop_rate: float = typer.Option(0.5, "--drop-rate", "-p", help="Delta drop probability"),
     rescale: bool = typer.Option(True, "--rescale/--no-rescale", help="Rescale surviving deltas"),
     output: Path = typer.Option(Path("./output/dare_merged"), "--output", "-o", help="Output directory"),
 ) -> None:
-    """Merge models using Drop And REscale (DARE)."""
+    """Merge models using Drop And REscale (DARE) with optional task vector negation."""
     models = [ModelSource(path=str(base), name="base", is_base=True)]
     for i, d in enumerate(donors, start=1):
-        models.append(ModelSource(path=str(d), name=f"donor_{i}"))
+        models.append(ModelSource(path=str(d), name=f"donor_{i}", is_negative=False))
+    if negatives:
+        for j, neg in enumerate(negatives, start=1):
+            models.append(ModelSource(path=str(neg), name=f"negative_{j}", is_negative=True))
 
     plan = MergePlan(
         name="cli-dare",
@@ -135,6 +143,104 @@ def dare(
         output_dir=str(output),
     )
     _run_engine(plan)
+
+
+@app.command()
+def analyze_divergence(
+    model_a: Path = typer.Option(..., "--model-a", "-a", help="Path to reference or base model"),
+    model_b: Path = typer.Option(..., "--model-b", "-b", help="Path to fine tuned or secondary model"),
+) -> None:
+    """Analyze tensor drift, cosine similarity, and calculate adaptive schedule curves across layers."""
+    from mergestudio.analysis.divergence import analyze_layer_divergence
+
+    if not model_a.exists() or not model_b.exists():
+        console.print("[red]Error: Model paths must exist[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Analyzing layer divergence between {model_a.name} and {model_b.name}...[/cyan]")
+    report = analyze_layer_divergence(model_a, model_b)
+
+    table = Table(title=f"Layer Divergence Report: {report.model_a} vs {report.model_b}")
+    table.add_column("Layer", style="cyan")
+    table.add_column("Cosine Sim", style="green")
+    table.add_column("Frobenius Drift", style="yellow")
+    table.add_column("Angular Dist", style="magenta")
+    table.add_column("Adaptive Weight", style="bold green")
+
+    for m, w in zip(report.layer_metrics[:32], report.adaptive_schedule_weights[:32]):
+        color = "green" if m.cosine_similarity > 0.98 else ("yellow" if m.cosine_similarity > 0.90 else "red")
+        table.add_row(
+            f"Layer {m.layer_idx}",
+            f"[{color}]{m.cosine_similarity:.4f}[/{color}]",
+            f"{m.frobenius_drift:.4f}",
+            f"{m.angular_distance:.4f}",
+            f"{w:.2f}",
+        )
+
+    console.print(table)
+    console.print(
+        Panel.fit(
+            f"[bold]Mean Cosine Similarity:[/bold] {report.mean_cosine_similarity:.4f}\n"
+            f"[bold]Highest Drift Layer:[/bold] Layer {report.max_divergence_layer}\n"
+            f"[bold]Adaptive Weights Recommendation:[/bold] {report.adaptive_schedule_weights[:5]}...",
+            border_style="cyan",
+        )
+    )
+
+
+@app.command()
+def export_ollama(
+    model_dir: Path = typer.Argument(..., help="Path to merged model directory"),
+) -> None:
+    """Generate production ready Ollama Modelfile and GGUF quantization script."""
+    from mergestudio.export.ollama import generate_gguf_conversion_script, generate_ollama_modelfile
+
+    if not model_dir.exists():
+        console.print(f"[red]Error: Directory does not exist: {model_dir}[/red]")
+        raise typer.Exit(1)
+
+    modelfile = generate_ollama_modelfile(model_dir)
+    script = generate_gguf_conversion_script(model_dir)
+
+    console.print(
+        Panel.fit(
+            f"[bold green]Ollama & GGUF Artifacts Generated[/bold green]\n"
+            f"Modelfile: [cyan]{modelfile}[/cyan]\n"
+            f"Quantization Script: [cyan]{script}[/cyan]\n\n"
+            f"[yellow]To register in Ollama:[/yellow]\n"
+            f"  ollama create my-merged-model -f {modelfile.name}",
+            border_style="green",
+        )
+    )
+
+
+@app.command()
+def evaluate(
+    model_dir: Path = typer.Argument(..., help="Path to merged model directory"),
+) -> None:
+    """Audit model parameter integrity, NaNs, infinities, and numerical stability."""
+    from mergestudio.evaluation.smoke_test import evaluate_model_health
+
+    if not model_dir.exists():
+        console.print(f"[red]Error: Model directory does not exist: {model_dir}[/red]")
+        raise typer.Exit(1)
+
+    report = evaluate_model_health(model_dir)
+
+    table = Table(title=f"Model Health Audit: {model_dir.name}")
+    table.add_column("Check", style="cyan")
+    table.add_column("Result", style="green")
+
+    table.add_row("Total Tensors", str(report.total_tensors))
+    table.add_row("Total Parameters", f"{report.total_parameters:,}")
+    table.add_row("NaN Check", "[green]Passed (No NaNs)[/green]" if not report.has_nan else "[red]FAILED[/red]")
+    table.add_row("Inf Check", "[green]Passed (No Infs)[/green]" if not report.has_inf else "[red]FAILED[/red]")
+    table.add_row("Mean Weight Norm", f"{report.mean_weight_norm:.4f}")
+    table.add_row("Overall Status", f"[bold green]{report.status}[/bold green]" if report.healthy else f"[bold red]{report.status}[/bold red]")
+
+    console.print(table)
+    for d in report.diagnostics:
+        console.print(f"  • {d}")
 
 
 @app.command()

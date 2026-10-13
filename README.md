@@ -25,18 +25,23 @@ The engine uses memory mapped `safetensors` readers and chunked streaming writer
 
 ## Capabilities
 
-| Algorithm | Method ID | Description | Primary Use Case |
+| Feature / Algorithm | Method ID / Command | Description | Primary Use Case |
 | :--- | :--- | :--- | :--- |
-| **SLERP** | `slerp` | Spherical linear interpolation preserving vector magnitudes | Merging two homologous models (e.g. Chat + Code) |
+| **SLERP** | `slerp` | Spherical linear interpolation preserving vector magnitudes | Merging two homologous models (Chat + Code) |
 | **TIES** | `ties` | Trims lowest deltas, elects consensus signs, disjointly averages | Merging 2+ specialized fine tunes into one base |
 | **DARE** | `dare_ties`, `dare_linear` | Bernoulli delta drop with unbiased rescaling factor | Absorbing multiple domain adapters with low degradation |
 | **Frankenmerge** | `frankenmerge`, `passthrough` | Layer slicing, key remapping, and `config.json` surgery | Expanding layer depth or grafting reasoning modules |
+| **Task Vector Negation** | `--negative`, `is_negative` | Negative delta subtraction during sign election and averaging | Unlearning unwanted behaviors and anti-refusal tuning |
+| **Layer Divergence** | `analyze-divergence` | Cosine similarity, Frobenius drift, and adaptive layer weighting | Finding optimal per-layer merge ratios automatically |
+| **Vocab Surgery** | Automatic | Embedding matrix dimension reconciliation and padding | Merging models with mismatched vocabulary sizes |
+| **Health Audit** | `evaluate` | Scans merged weights for NaNs, infinities, and norm variance | Catching numerical instabilities before evaluation |
+| **Ollama / GGUF Export** | `export-ollama` | Generates Ollama Modelfile and llama.cpp quantization script | Deploying merged models to local inference engines |
 
 ---
 
 ## Studio Interface
 
-MergeStudio includes an interactive Web Studio running on FastAPI. It provides an SVG curve editor for layer weight progression, interactive layer surgery slicing, and real time streaming telemetry over WebSockets.
+MergeStudio includes an interactive Web Studio running on FastAPI. It provides an SVG curve editor for layer weight progression, interactive layer surgery slicing, divergence inspection, model health audits, and real time streaming telemetry over WebSockets.
 
 ![MergeStudio Studio UI](docs/images/mergestudio_studio.png)
 
@@ -80,13 +85,14 @@ mergestudio slerp \
   --output ./output/llama-3-8b-merged
 ```
 
-### 2. TIES Merging
+### 2. TIES Merging with Task Vector Negation (Unlearning)
 
 ```bash
 mergestudio ties \
   --base ./models/llama-3-8b-base \
   --donor ./models/llama-3-8b-instruct \
   --donor ./models/llama-3-8b-code \
+  --negative ./models/llama-3-8b-refusal \
   --density 0.2 \
   --weight 1.0 \
   --output ./output/ties-model
@@ -104,13 +110,27 @@ mergestudio dare \
   --output ./output/dare-model
 ```
 
-### 4. Inspect Model Architecture and Safetensors
+### 4. Layer Divergence & Adaptive Curve Recommendation
 
 ```bash
-mergestudio inspect ./models/llama-3-8b-base
+mergestudio analyze-divergence \
+  --model-a ./models/llama-3-8b-base \
+  --model-b ./models/llama-3-8b-instruct
 ```
 
-### 5. Declarative Execution from YAML
+### 5. Numerical Stability & Health Audit
+
+```bash
+mergestudio evaluate ./output/ties-model
+```
+
+### 6. Ollama Modelfile & GGUF Quantization Export
+
+```bash
+mergestudio export-ollama ./output/ties-model
+```
+
+### 7. Declarative Execution from YAML
 
 ```bash
 mergestudio merge --config ./configs/custom_merge.yaml
@@ -155,12 +175,18 @@ output_dir: ./output/llama-3-11b-merged
 import torch
 from mergestudio.algorithms import slerp, ties_merge, dare_merge
 from mergestudio.streaming import StreamingMergeEngine
+from mergestudio.analysis import analyze_layer_divergence
+from mergestudio.evaluation import evaluate_model_health
 from mergestudio.core import MergePlan, ModelSource, SlerpConfig, MergeMethod
 
 # Direct mathematical tensor interpolation
 v0 = torch.randn(4096, 4096)
 v1 = torch.randn(4096, 4096)
 merged_tensor = slerp(v0, v1, alpha=0.4, preserve_norm=True)
+
+# Layer divergence analysis
+report = analyze_layer_divergence("./models/base", "./models/instruct")
+print("Recommended layer schedule:", report.adaptive_schedule_weights)
 
 # Zero-RAM streaming execution
 plan = MergePlan(
@@ -176,6 +202,10 @@ plan = MergePlan(
 
 engine = StreamingMergeEngine(plan)
 engine.run(progress_callback=lambda p: print(f"Progress: {p.completed_tensors}/{p.total_tensors}"))
+
+# Model health smoke test
+audit = evaluate_model_health("./output/merged")
+print("Health status:", audit.status, "Parameters:", audit.total_parameters)
 ```
 
 ---
@@ -188,9 +218,10 @@ MergeStudio bypasses this with memory mapped file descriptors:
 1. `ModelIndex` scans safetensors metadata and locates each tensor across shards without reading tensor data.
 2. The pipeline iterates over each target parameter key.
 3. Only the specific tensor is read from the input safetensors files into memory.
-4. The algorithm merges the tensor on CPU or GPU.
-5. The result is buffered in the sharded writer and released immediately to the garbage collector.
-6. The process runs with a memory footprint under 200 MB regardless of overall model size.
+4. If vocabularies differ, `reconcile_embedding_shapes` pads missing tokens automatically.
+5. The algorithm merges the tensor on CPU or GPU.
+6. The result is buffered in the sharded writer and released immediately to the garbage collector.
+7. The process runs with a memory footprint under 200 MB regardless of overall model size.
 
 ---
 
